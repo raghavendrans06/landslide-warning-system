@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import folium
 from streamlit_folium import st_folium
 from geopy.geocoders import Nominatim
@@ -7,7 +8,7 @@ from weather_api import NER_LOCATIONS, fetch_live_weather
 
 st.set_page_config(page_title="NER Landslide Early Warning System", layout="wide")
 
-# Comprehensive Multi-Language Translation Dictionary
+# Multi-Language Translation Dictionary
 LANGUAGES = {
     "English": {
         "title": "🚨 AI-Based Early Warning & Landslide Risk Monitoring System (NER)",
@@ -35,11 +36,18 @@ LANGUAGES = {
         "btn_siren": "🔊 Replay Siren",
         "map_title": "🗺️ GIS Real-Time Map — Location:",
         "map_caption": "💡 Click anywhere on the map to place a pin and recalculate risk for that location.",
+        "chart_title": "📊 24-Hour Rainfall Trend & Threshold Analytics",
         "infra_title": "🛣️ Infrastructure & Road Connectivity Status",
         "col_route": "Route Name",
         "col_risk": "Risk Level",
         "col_status": "Status",
         "sector_prefix": "Sector around",
+        "dispatch_title": "📲 Disaster Management Alert Dispatcher",
+        "dispatch_expander": "⚡ Dispatch Emergency SMS / Email Notification",
+        "dispatch_desc": "Simulate sending instant operational alerts to local responders and District Disaster Management Authorities (DDMA).",
+        "recipient_label": "Recipient Phone Number / Email",
+        "channel_label": "Dispatch Channel",
+        "btn_dispatch": "🚀 Dispatch Simulated Emergency Alert",
         "reporting_title": "📱 Citizen & Field Official Hazard Reporting",
         "input_location": "Incident Location / Route",
         "input_hazard": "Hazard Observed",
@@ -50,6 +58,8 @@ LANGUAGES = {
         "no_reports": "No reports submitted yet during this session.",
         "flagged_status": "Flagged for Verification",
         "report_success": "Report recorded!",
+        "ml_title": "🧠 Model Explainability & Feature Weights",
+        "ml_expander": "🔍 View AI/ML Scoring Architecture",
         "export_title": "📄 Export Situational Report for Authorities",
         "btn_download": "📥 Download Situational Report (.TXT)"
     },
@@ -79,11 +89,18 @@ LANGUAGES = {
         "btn_siren": "🔊 सायरन बजाएं",
         "map_title": "🗺️ जीआईएस वास्तविक समय मानचित्र — स्थान:",
         "map_caption": "💡 मानचित्र पर कहीं भी क्लिक करके पिन लगाएं और जोखिम की पुनः गणना करें।",
+        "chart_title": "📊 24-घंटे का वर्षा रुझान और सीमा विश्लेषण",
         "infra_title": "🛣️ बुनियादी ढांचा और सड़क संपर्क स्थिति",
         "col_route": "मार्ग का नाम",
         "col_risk": "जोखिम स्तर",
         "col_status": "स्थिति",
         "sector_prefix": "क्षेत्र के आसपास",
+        "dispatch_title": "📲 आपदा प्रबंधन अलर्ट प्रेषक",
+        "dispatch_expander": "⚡ आपातकालीन एसएमएस / ईमेल अधिसूचना भेजें",
+        "dispatch_desc": "स्थानीय प्रतिक्रियाकर्ताओं और जिला आपदा प्रबंधन प्राधिकरणों (डीडीएमए) को त्वरित अलर्ट भेजें।",
+        "recipient_label": "प्राप्तकर्ता फोन नंबर / ईमेल",
+        "channel_label": "चैनल",
+        "btn_dispatch": "🚀 आपातकालीन अलर्ट भेजें",
         "reporting_title": "📱 नागरिक और क्षेत्र अधिकारी खतरा रिपोर्टिंग",
         "input_location": "घटना का स्थान / मार्ग",
         "input_hazard": "देखा गया खतरा",
@@ -94,6 +111,8 @@ LANGUAGES = {
         "no_reports": "इस सत्र के दौरान अभी तक कोई रिपोर्ट दर्ज नहीं की गई है।",
         "flagged_status": "सत्यापन के लिए चिह्नित",
         "report_success": "रिपोर्ट दर्ज की गई!",
+        "ml_title": "🧠 मॉडल स्पष्टीकरण और फीचर महत्व",
+        "ml_expander": "🔍 एआई/एमएल स्कोरिंग आर्किटेक्चर देखें",
         "export_title": "📄 अधिकारियों के लिए स्थिति रिपोर्ट निर्यात करें",
         "btn_download": "📥 स्थिति रिपोर्ट डाउनलोड करें (.TXT)"
     },
@@ -123,11 +142,18 @@ LANGUAGES = {
         "btn_siren": "🔊 চাইৰেণ বজাওঁক",
         "map_title": "🗺️ GIS ৰিয়েল-টাইম মেপ — স্থান:",
         "map_caption": "💡 স্থান সলনি কৰিবলৈ আৰু ঝুঁকি পুনৰ গণনা কৰিবলৈ মেপৰ যিকোনো ঠাইত ক্লিক কৰক।",
+        "chart_title": "📊 ২৪-ঘণ্টাৰ বৰষুণৰ ট্ৰেণ্ড আৰু বিশ্লেষণ",
         "infra_title": "🛣️ আন্তঃগাঁথনি আৰু পথ যোগাযোগৰ অৱস্থা",
         "col_route": "পথৰ নাম",
         "col_risk": "ঝুঁকিৰ মাত্ৰা",
         "col_status": "অৱস্থা",
         "sector_prefix": "আশে-পাশে অঞ্চল",
+        "dispatch_title": "📲 দুৰ্যোগ প্ৰশমন সতৰ্কবাৰ্তা প্ৰেৰণ কৰ্তা",
+        "dispatch_expander": "⚡ জৰুৰীকালীন SMS / Email প্ৰেৰণ কৰক",
+        "dispatch_desc": "স্থানীয় প্ৰশাসন আৰু জিলা দুৰ্যোগ প্ৰশমন কৰ্তৃপক্ষলৈ তাৎক্ষণিক বাৰ্তা প্ৰেৰণ কৰক।",
+        "recipient_label": "প্ৰাপকৰ ফোন নম্বৰ / ইমেইল",
+        "channel_label": "প্ৰেৰণৰ মাধ্যম",
+        "btn_dispatch": "🚀 সতৰ্কবাৰ্তা প্ৰেৰণ কৰক",
         "reporting_title": "📱 ৰাইজ আৰু ফিল্ড বিষয়াৰ দুৰ্যোগ প্ৰতিবেদন",
         "input_location": "দুৰ্যোগৰ স্থান / পথ",
         "input_hazard": "প্ৰত্যক্ষ কৰা বিপদ",
@@ -138,6 +164,8 @@ LANGUAGES = {
         "no_reports": "এই চেছনত কোনো প্ৰতিবেদন জমা দিয়া হোৱা নাই।",
         "flagged_status": "পৰীক্ষাৰ বাবে প্ৰেৰণ কৰা হৈছে",
         "report_success": "প্ৰতিবেদন লিপিবদ্ধ কৰা হ'ল!",
+        "ml_title": "🧠 AI/ML মডেলৰ ব্যাখ্যা আৰু বৈশিষ্ট্যসূচক বিশ্লেষণ",
+        "ml_expander": "🔍 AI/ML স্ক'ৰিং আৰ্কিটেকচাৰ চাওক",
         "export_title": "📄 কৰ্তৃপক্ষৰ বাবে প্ৰতিবেদন সংগ্ৰহ কৰক",
         "btn_download": "📥 প্ৰতিবেদন ডাউনলোড কৰক (.TXT)"
     }
@@ -175,9 +203,9 @@ def get_location_name(lat, lon):
 
 # Initialize Session States
 if "selected_lat" not in st.session_state:
-    st.session_state["selected_lat"] = 27.3389
-    st.session_state["selected_lon"] = 88.6065
-    st.session_state["location_name"] = "Gangtok, Sikkim"
+    st.session_state["selected_lat"] = 25.5788
+    st.session_state["selected_lon"] = 91.8933
+    st.session_state["location_name"] = "Shillong (Meghalaya)"
 
 if "citizen_reports" not in st.session_state:
     st.session_state["citizen_reports"] = []
@@ -205,10 +233,10 @@ if data_mode_choice == t["mode_live"]:
     slope = st.sidebar.slider(t["slope_label"], 0.0, 60.0, 38.0)
     soil_moisture = st.sidebar.slider(t["moisture_label"], 0.0, 100.0, 75.0)
 else:
-    rainfall = st.sidebar.slider(t["rainfall_label"], 0.0, 100.0, 61.5)
+    rainfall = st.sidebar.slider(t["rainfall_label"], 0.0, 100.0, 65.0)
     antecedent = st.sidebar.slider(t["antecedent_label"], 0.0, 400.0, 180.0)
-    slope = st.sidebar.slider(t["slope_label"], 0.0, 60.0, 25.6)
-    soil_moisture = st.sidebar.slider(t["moisture_label"], 0.0, 100.0, 75.0)
+    slope = st.sidebar.slider(t["slope_label"], 0.0, 60.0, 45.0)
+    soil_moisture = st.sidebar.slider(t["moisture_label"], 0.0, 100.0, 85.0)
 
 # Calculate Risk Index
 risk_score = min(100.0, (rainfall * 0.35) + (antecedent * 0.15) + (slope * 0.30) + (soil_moisture * 0.20))
@@ -301,6 +329,19 @@ if map_data and map_data.get("last_clicked"):
         st.session_state["location_name"] = get_location_name(clicked_lat, clicked_lon)
         st.rerun()
 
+# 24-Hour Rainfall Analytics Chart
+st.subheader(t["chart_title"])
+hours = [f"-{i}h" for i in range(24, 0, -1)]
+simulated_rainfall = np.clip(np.random.normal(loc=rainfall * 0.8, scale=4.0, size=24), 0, 100)
+simulated_rainfall[-1] = rainfall
+
+chart_data = pd.DataFrame({
+    "Observed Rainfall (mm/hr)": simulated_rainfall,
+    "Critical Threshold (50 mm/hr)": [50.0] * 24
+}, index=hours)
+
+st.line_chart(chart_data)
+
 # Infrastructure Table
 st.subheader(t["infra_title"])
 route_data = pd.DataFrame([
@@ -309,6 +350,22 @@ route_data = pd.DataFrame([
     {t["col_route"]: "NH-27 (Guwahati Corridor)", t["col_risk"]: t["low_risk"], t["col_status"]: t["road_open"]}
 ])
 st.table(route_data)
+
+# Disaster Management Alert Dispatcher
+st.subheader(t["dispatch_title"])
+with st.expander(t["dispatch_expander"]):
+    st.write(t["dispatch_desc"])
+    col_recipient, col_channel = st.columns([2, 1])
+    with col_recipient:
+        recipient = st.text_input(t["recipient_label"], "+91 98765 43210")
+    with col_channel:
+        channel = st.selectbox(t["channel_label"], ["SMS (Twilio API)", "WhatsApp Gateway", "Email"])
+        
+    if st.button(t["btn_dispatch"]):
+        if risk_score >= 65:
+            st.success(f"✅ CRITICAL ALERT dispatched to {recipient} via {channel}! Status: Delivered.")
+        else:
+            st.info(f"ℹ️ Advisory report dispatched to {recipient} via {channel}. Risk level currently normal.")
 
 # Citizen Reporting Section
 st.subheader(t["reporting_title"])
@@ -335,6 +392,16 @@ with col_logs:
         st.dataframe(pd.DataFrame(st.session_state["citizen_reports"]), use_container_width=True)
     else:
         st.info(t["no_reports"])
+
+# ML Model Explainability & Feature Weights
+st.subheader(t["ml_title"])
+with st.expander(t["ml_expander"]):
+    weights_df = pd.DataFrame({
+        "Feature Parameter": ["Current Rainfall", "Terrain Slope", "Soil Moisture", "3-Day Antecedent Rainfall"],
+        "Weight Share": ["35%", "30%", "20%", "15%"],
+        "Current Value": [f"{rainfall} mm/hr", f"{slope}°", f"{soil_moisture}%", f"{antecedent} mm"]
+    })
+    st.table(weights_df)
 
 st.markdown("---")
 
